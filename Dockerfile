@@ -10,13 +10,17 @@ RUN apt-get update && \
   echo "tzdata tzdata/Areas select Europe" > ~/tx.txt && \
   echo "tzdata tzdata/Zones/Europe select Berlin" >> ~/tx.txt && \
   debconf-set-selections ~/tx.txt && \
-  apt-get install -y fluxbox xfonts-base unzip gnupg apt-transport-https wget software-properties-common novnc websockify libxv1 libglu1-mesa xauth x11-utils xorg libegl1-mesa xauth x11-xkb-utils software-properties-common bzip2 gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-tools libglu1-mesa libgtk2.0-0 libncursesw5 libopenal1 libsdl-image1.2 libsdl-ttf2.0-0 libsdl2-2.0 libsndfile1 nginx pulseaudio supervisor ucspi-tcp wget build-essential ccache
+  apt-get install -y fonts-dejavu-core xfonts-base unzip gnupg apt-transport-https wget software-properties-common novnc websockify libxv1 libglu1-mesa xauth x11-utils xorg libegl1-mesa xauth x11-xkb-utils software-properties-common bzip2 gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-tools libglu1-mesa libgtk2.0-0 libncursesw5 libopenal1 libsdl-image1.2 libsdl-ttf2.0-0 libsdl2-2.0 libsndfile1 nginx pulseaudio supervisor ucspi-tcp wget && \
+  rm -rf /var/cache/apt/archives /var/lib/apt/lists
 
 # Install VNC server
 RUN wget -q -O- https://packagecloud.io/dcommander/turbovnc/gpgkey | gpg --dearmor > /etc/apt/trusted.gpg.d/TurboVNC.gpg && \
   wget -q -O /etc/apt/sources.list.d/TurboVNC.list https://raw.githubusercontent.com/TurboVNC/repo/main/TurboVNC.list && \
   apt-get update && \
-  apt-get install -y turbovnc
+  apt-get install -y turbovnc && \
+  rm -rf /var/cache/apt/archives /var/lib/apt/lists
+
+RUN mkdir ~/.vnc
 
 FROM base AS dosbox-base
 
@@ -30,21 +34,36 @@ RUN set -eux; \
     install -m 0755 /opt/dosbox-staging/dosbox* /usr/local/bin/; \
     rm -f ds.tar.xz
 
-RUN mkdir ~/.vnc && \
-  mkdir -p ~/.dosbox ~/.config/dosbox
-RUN cp -r /opt/dosbox-staging/resources/glshaders /root/.config/dosbox/
+# IDs configurable so host binds map cleanly
+ARG DOSBOX_USER=dosbox
+ENV DOSBOX_USER=${DOSBOX_USER}
+ARG UID=1000
+ARG GID=1000
 
-COPY docker/dosbox.conf /root/.dosbox/dosbox.conf
+RUN groupadd -g ${GID} ${DOSBOX_USER} \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash ${DOSBOX_USER}
 
-# Symlink dosbox config for dosbox-staging
-RUN mkdir -p /root/.config/dosbox && \
-    ln -sf /root/.dosbox/dosbox.conf /root/.config/dosbox/dosbox-staging.conf
+# Per-user dirs + resources
+RUN install -d -o ${DOSBOX_USER} -g ${DOSBOX_USER} \
+      /home/${DOSBOX_USER}/.dosbox \
+      /home/${DOSBOX_USER}/.config/dosbox \
+      /home/${DOSBOX_USER}/dos
 
-FROM dosbox-base AS docksbox
+# GLSL shaders, etc.
+RUN cp -r /opt/dosbox-staging/resources/* /home/${DOSBOX_USER}/.config/dosbox/ \
+ && chown -R ${DOSBOX_USER}:${DOSBOX_USER} /home/${DOSBOX_USER}
+
+# Main config lives in ~/.dosbox; staging reads ~/.config/dosbox/dosbox-staging.conf
+#                     place your custom file at ~/.config/dosbox/dosbox.conf
+COPY docker/dosbox.conf /home/${DOSBOX_USER}/.config/dosbox/dosbox-staging.conf
+RUN echo "# Mount your custom configuration here" > /home/${DOSBOX_USER}/.config/dosbox/dosbox.conf
+RUN echo "@echo off\necho Mount your custom AUTOEXEC.BAT here" > /home/${DOSBOX_USER}/dos/autoexec.bat
+RUN chown -R ${DOSBOX_USER}:${DOSBOX_USER} /home/${DOSBOX_USER}
+
+FROM dosbox-base AS docksbox-base
 
 # User Settings for VNC
-ENV USER=root
-ENV PASSWORD=password1
+ARG PASSWORD=password1
 
 # Set VNC password
 RUN mkdir -p /root/.vnc
@@ -79,18 +98,23 @@ RUN sed -i "/import RFB/a \
   document.addEventListener('keydown', e => { wa.start(); });" \
   /usr/share/novnc/app/ui.js
 
-# RUN echo $PASSWORD | vncpasswd -f > ~/.vnc/passwd && \
-#   chmod 0600 ~/.vnc/passwd
-
-COPY keen /dos/keen
-COPY doom /dos/doom
-
-EXPOSE 80
-
 ENV SDL_VIDEODRIVER="x11"
 ENV SDL_RENDER_DRIVER="software"
 ENV LIBGL_ALWAYS_SOFTWARE="1"
 
+EXPOSE 80
+# VOLUME ["/home/${DOSBOX_USER}/dos"]
+
 # Copy in supervisor configuration for startup
 COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
 ENTRYPOINT [ "supervisord", "-c", "/etc/supervisor/supervisord.conf" ]
+
+FROM docksbox-base AS docksbox
+
+# Copy demo data
+USER ${DOSBOX_USER}
+COPY keen /home/${DOSBOX_USER}/dos/keen
+COPY doom /home/${DOSBOX_USER}/dos/doom
+
+# Run entrypoint as root
+USER root
