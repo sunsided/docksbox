@@ -1,0 +1,11 @@
+services:
+  dosbox:
+    build: .
+    image: dosbox-game:latest
+    ports:
+      - "6080:80"   # browse http://localhost:6080/
+    volumes:
+      - ./games:/games
+    environment:
+      USER: root
+      PASSWORD: password1
