@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+# Log and use whatever DISPLAY vncserver passed in
+echo "xstartup: DISPLAY=${DISPLAY}" >&2
+
+# Wait until X is actually accepting connections
+for i in $(seq 1 50); do
+  xdpyinfo >/dev/null 2>&1 && break
+  sleep 0.1
+done
+
+# Keep the session alive (foreground)
+# exec /usr/bin/fluxbox
+
+# # run dosbox-staging; keep session alive if it exits
+DBIN="$(command -v dosbox-staging || command -v dosbox)"
+while true; do
+  "$DBIN" -conf /root/.config/dosbox/dosbox-staging.conf
+  echo "DOSBox exite[d; restarting in 2s..." >&2
+  sleep 2
+done
