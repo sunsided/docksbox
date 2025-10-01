@@ -1,7 +1,8 @@
 services:
   dosbox:
     build: .
-    image: dosbox-game:latest
+    image: ghcr.io/sunsided/docksbox:latest
+    # image: docksbox:latest
     ports:
       - "6080:80"   # browse http://localhost:6080/
     volumes:
