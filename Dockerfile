@@ -122,8 +122,8 @@ FROM docksbox-base AS docksbox
 
 # Copy demo data
 USER ${DOSBOX_USER}
-ADD --chown=${DOSBOX_USER}:${DOSBOX_USER} keen /home/${DOSBOX_USER}/dos/keen
-ADD --chown=${DOSBOX_USER}:${DOSBOX_USER} doom /home/${DOSBOX_USER}/dos/doom
+ADD --chown=${DOSBOX_USER}:${DOSBOX_USER} keen /home/${DOSBOX_USER}/dos/KEEN
+ADD --chown=${DOSBOX_USER}:${DOSBOX_USER} doom /home/${DOSBOX_USER}/dos/DOOM
 
 # Run entrypoint as root
 USER root
