@@ -51,7 +51,8 @@ RUN install -d -o ${DOSBOX_USER} -g ${DOSBOX_USER} \
 
 # GLSL shaders, etc.
 RUN cp -r /opt/dosbox-staging/resources/* /home/${DOSBOX_USER}/.config/dosbox/ \
- && chown -R ${DOSBOX_USER}:${DOSBOX_USER} /home/${DOSBOX_USER}
+ && chown -R ${DOSBOX_USER}:${DOSBOX_USER} /home/${DOSBOX_USER} \
+ && chmod -R g+s /home/${DOSBOX_USER}
 
 # Main config lives in ~/.dosbox; staging reads ~/.config/dosbox/dosbox-staging.conf
 #                     place your custom file at ~/.config/dosbox/dosbox.conf
@@ -59,6 +60,8 @@ COPY docker/dosbox.conf /home/${DOSBOX_USER}/.config/dosbox/dosbox-staging.conf
 RUN echo "# Mount your custom configuration here" > /home/${DOSBOX_USER}/.config/dosbox/dosbox.conf
 RUN echo "@echo off\necho Mount your custom AUTOEXEC.BAT here" > /home/${DOSBOX_USER}/dos/autoexec.bat
 RUN chown -R ${DOSBOX_USER}:${DOSBOX_USER} /home/${DOSBOX_USER}
+
+RUN ln -s /home/${DOSBOX_USER}/dos /home/${DOSBOX_USER}/.config/dosbox/drives/c
 
 FROM dosbox-base AS docksbox-base
 
@@ -103,7 +106,7 @@ ENV SDL_RENDER_DRIVER="software"
 ENV LIBGL_ALWAYS_SOFTWARE="1"
 
 EXPOSE 80
-# VOLUME ["/home/${DOSBOX_USER}/dos"]
+WORKDIR /home/${DOSBOX_USER}/dos
 
 # Copy in supervisor configuration for startup
 COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
@@ -113,8 +116,9 @@ FROM docksbox-base AS docksbox
 
 # Copy demo data
 USER ${DOSBOX_USER}
-COPY keen /home/${DOSBOX_USER}/dos/keen
-COPY doom /home/${DOSBOX_USER}/dos/doom
+ADD --chown=${DOSBOX_USER}:${DOSBOX_USER} keen /home/${DOSBOX_USER}/dos/keen
+ADD --chown=${DOSBOX_USER}:${DOSBOX_USER} doom /home/${DOSBOX_USER}/dos/doom
 
 # Run entrypoint as root
 USER root
+RUN chown -R ${DOSBOX_USER}:${DOSBOX_USER} /home/${DOSBOX_USER}
