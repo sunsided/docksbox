@@ -63,7 +63,7 @@ RUN cp -r /opt/dosbox-staging/resources/* /home/${DOSBOX_USER}/.config/dosbox/ \
 #                     place your custom file at ~/.config/dosbox/dosbox.conf
 COPY docker/dosbox.conf /home/${DOSBOX_USER}/.config/dosbox/dosbox-staging.conf
 RUN echo "# Mount your custom configuration here" > /home/${DOSBOX_USER}/.config/dosbox/dosbox.conf
-RUN echo "@echo off\necho Mount your custom AUTOEXEC.BAT here" > /home/${DOSBOX_USER}/dos/autoexec.bat
+RUN echo "@echo off\necho Mount your custom AUTOEXEC.BAT here" > /home/${DOSBOX_USER}/dos/AUTOEXEC.BAT
 RUN chown -R ${DOSBOX_USER}:${DOSBOX_USER} /home/${DOSBOX_USER}
 
 RUN ln -s /home/${DOSBOX_USER}/dos /home/${DOSBOX_USER}/.config/dosbox/drives/c
