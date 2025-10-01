@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+echo "xstartup: DISPLAY=${DISPLAY}" >&2
+
+# Wait until X is up
+for i in $(seq 1 50); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.1; done
+
+# Who runs DOSBox (fallback if not set)
+DOSBOX_USER="${DOSBOX_USER:-dosbox}"
+
+# 1) Give DOSBOX_USER the X cookie from the VNC server (root's .Xauthority)
+#    Robust: extract/merge only the needed entry for $DISPLAY.
+if [ -r "${XAUTHORITY:-/root/.Xauthority}" ]; then
+  XAUTH_SRC="${XAUTHORITY:-/root/.Xauthority}"
+  su -s /bin/sh - "${DOSBOX_USER}" -c '
+    set -eu
+    mkdir -p "$HOME"
+    touch "$HOME/.Xauthority"
+  '
+  # extract from root -> merge into user
+  xauth -f "$XAUTH_SRC" nextract - "$DISPLAY" \
+    | su -s /bin/sh - "${DOSBOX_USER}" -c 'xauth -f "$HOME/.Xauthority" nmerge - >/dev/null 2>&1 || true'
+fi
+
+# Optional fallback (looser): allow the local user via xhost.
+# xhost +SI:localuser:$DOSBOX_USER || true
+
+# 2) Run DOSBox forever as DOSBOX_USER, with safe software video
+DBIN="$(command -v dosbox-staging || command -v dosbox)"
+CONF="/home/${DOSBOX_USER}/.config/dosbox/dosbox.conf"
+
+while true; do
+  su -s /bin/sh -c "exec '${DBIN}' -conf '${CONF}'" ${DOSBOX_USER}
+  echo "DOSBox exited; restarting in 2s..." >&2
+  sleep 2
+done
