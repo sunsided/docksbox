@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS base
+FROM ubuntu:24.04 AS base
 
 # Variables for installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -6,11 +6,12 @@ ENV DEBCONF_NONINTERACTIVE_SEEN=true
 ENV XKB_DEFAULT_RULES=base
 
 # Install dependencies
+RUN echo "deb http://security.ubuntu.com/ubuntu focal-security main universe" > /etc/apt/sources.list.d/ubuntu-focal-sources.list
 RUN apt-get update && \
   echo "tzdata tzdata/Areas select Europe" > ~/tx.txt && \
   echo "tzdata tzdata/Zones/Europe select Berlin" >> ~/tx.txt && \
   debconf-set-selections ~/tx.txt && \
-  apt-get install -y fonts-dejavu-core xfonts-base unzip gnupg apt-transport-https wget software-properties-common novnc websockify libxv1 libglu1-mesa xauth x11-utils xorg libegl1-mesa xauth x11-xkb-utils software-properties-common bzip2 gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-tools libglu1-mesa libgtk2.0-0 libncursesw5 libopenal1 libsdl-image1.2 libsdl-ttf2.0-0 libsdl2-2.0 libsndfile1 nginx pulseaudio supervisor ucspi-tcp wget && \
+  apt-get install -y fonts-dejavu-core xfonts-base unzip gnupg apt-transport-https wget software-properties-common novnc websockify libxv1 libglu1-mesa xauth x11-utils xorg libgl1 libglx-mesa0 xauth x11-xkb-utils software-properties-common bzip2 gstreamer1.0-plugins-good gstreamer1.0-pulseaudio gstreamer1.0-tools libglu1-mesa libgtk2.0-0 libncursesw5 libopenal1 libsdl-image1.2 libsdl-ttf2.0-0 libsdl2-2.0 libsndfile1 nginx pulseaudio supervisor ucspi-tcp wget && \
   rm -rf /var/cache/apt/archives /var/lib/apt/lists
 
 # Install VNC server
@@ -40,8 +41,12 @@ ENV DOSBOX_USER=${DOSBOX_USER}
 ARG UID=1000
 ARG GID=1000
 
-RUN groupadd -g ${GID} ${DOSBOX_USER} \
- && useradd -m -u ${UID} -g ${GID} -s /bin/bash ${DOSBOX_USER}
+RUN groupmod --new-name ${DOSBOX_USER} ubuntu
+RUN usermod -d /home/dosbox -m -g ${DOSBOX_USER} -l ${DOSBOX_USER} ubuntu
+
+# RUN deluser --remove-home ubuntu
+# RUN groupadd -g ${GID} ${DOSBOX_USER} \
+#  && useradd -m -u ${UID} -g ${GID} -s /bin/bash ${DOSBOX_USER}
 
 # Per-user dirs + resources
 RUN install -d -o ${DOSBOX_USER} -g ${DOSBOX_USER} \
@@ -104,6 +109,7 @@ RUN sed -i "/import RFB/a \
 ENV SDL_VIDEODRIVER="x11"
 ENV SDL_RENDER_DRIVER="software"
 ENV LIBGL_ALWAYS_SOFTWARE="1"
+ENV SDL_VIDEO_X11_VISUALID=0x022
 
 EXPOSE 80
 WORKDIR /home/${DOSBOX_USER}/dos
