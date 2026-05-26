@@ -1,0 +1,110 @@
+version: '3'
+
+vars:
+  IMAGE: docksbox
+  TAG: '{{ .TAG | default "dev" }}'
+  REGISTRY_IMAGE: ghcr.io/sunsided/docksbox:latest
+  PLATFORMS: '{{ .PLATFORMS | default "linux/amd64,linux/arm64" }}'
+  HOST_PORT: '{{ .HOST_PORT | default "6080" }}'
+
+tasks:
+  default:
+    cmds:
+      - task --list --sort=none
+    silent: true
+
+  build:
+    desc: Build the docksbox image locally for the host architecture
+    preconditions:
+      - sh: command -v docker
+        msg: "docker not found — install Docker Engine or Docker Desktop"
+    cmds:
+      - docker build --target docksbox -t {{.IMAGE}}:{{.TAG}} .
+
+  build:multi:
+    desc: Build the docksbox image for multiple platforms (requires buildx + QEMU)
+    preconditions:
+      - sh: docker buildx version >/dev/null 2>&1
+        msg: "docker buildx not available — install Docker Desktop or the buildx plugin"
+    cmds:
+      - docker buildx build --target docksbox --platform {{.PLATFORMS}} -t {{.IMAGE}}:{{.TAG}} .
+
+  pull:
+    desc: Pull the published image from GHCR
+    cmds:
+      - docker pull {{.REGISTRY_IMAGE}}
+
+  lint:
+    desc: Lint the Dockerfile with hadolint (matches CI threshold=error)
+    preconditions:
+      - sh: command -v docker
+        msg: "docker not found — needed to run hadolint container"
+    cmds:
+      - docker run --rm -i hadolint/hadolint hadolint --failure-threshold error - < Dockerfile
+
+  scan:
+    desc: Run Trivy against the locally built image for CRITICAL/HIGH vulns
+    deps: [build]
+    cmds:
+      - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image --severity CRITICAL,HIGH {{.IMAGE}}:{{.TAG}}
+
+  run:
+    desc: Run the locally built image, browse at http://localhost:{{.HOST_PORT}}/
+    deps: [build]
+    cmds:
+      - docker run --rm -p 127.0.0.1:{{.HOST_PORT}}:80 {{.IMAGE}}:{{.TAG}}
+
+  run:ghcr:
+    desc: Run the published GHCR image without a local build
+    cmds:
+      - docker run --rm -p 127.0.0.1:{{.HOST_PORT}}:80 {{.REGISTRY_IMAGE}}
+
+  up:
+    desc: Start the stack via docker compose (detached)
+    preconditions:
+      - sh: docker compose version >/dev/null 2>&1
+        msg: "docker compose plugin not found — install Docker Compose v2"
+    cmds:
+      - docker compose up -d --build
+
+  down:
+    desc: Stop the docker compose stack
+    cmds:
+      - docker compose down
+
+  logs:
+    desc: Tail logs from the running compose stack
+    cmds:
+      - docker compose logs -f {{.CLI_ARGS}}
+
+  shell:
+    desc: Open a root shell inside the running container
+    cmds:
+      - docker compose exec dosbox bash
+
+  clean:
+    desc: Remove the locally built image and any stopped compose containers
+    cmds:
+      - docker compose down --remove-orphans 2>/dev/null || true
+      - docker image rm {{.IMAGE}}:{{.TAG}} 2>/dev/null || true
+
+  k8s:apply:
+    desc: Apply the single-instance k8s manifests
+    preconditions:
+      - sh: command -v kubectl
+        msg: "kubectl not found — install from https://kubernetes.io/docs/tasks/tools/"
+    cmds:
+      - kubectl apply -f k8s/manifests/
+
+  k8s:delete:
+    desc: Delete the resources created by k8s:apply
+    prompt: "This will delete the docksbox Deployment and Service. Continue?"
+    cmds:
+      - kubectl delete -f k8s/manifests/
+
+  ci:
+    desc: Local approximation of the CI pipeline (lint + build + scan)
+    cmds:
+      - task: lint
+      - task: build
+      - task: scan

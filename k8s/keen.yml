@@ -29,6 +29,6 @@ spec:
     spec:
       containers:
       - name: keen-kontainer
-        image: "blaizek8s.azurecr.io/k8s"
+        image: "ghcr.io/sunsided/docksbox:latest"
         ports:
         - containerPort: 80

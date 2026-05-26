@@ -2,12 +2,7 @@ services:
   dosbox:
     build: .
     image: ghcr.io/sunsided/docksbox:latest
-    # image: docksbox:latest
     ports:
-      - "6080:80"   # browse http://localhost:6080/
+      - "127.0.0.1:6080:80"   # browse http://localhost:6080/
     volumes:
-      - ./games:/games
-    user: "0:0"
-    environment:
-      USER: root
-      PASSWORD: password1
+      - ./games:/home/dosbox/dos/games

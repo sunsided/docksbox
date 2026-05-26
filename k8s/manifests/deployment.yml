@@ -1,16 +1,23 @@
-apiVersion : apps/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: "k8s"
+  name: docksbox
+  labels:
+    app: docksbox
 spec:
-  replicas: 2
+  # VNC sessions are stateful; do not load-balance multiple replicas.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docksbox
   template:
     metadata:
       labels:
-        app: "k8s"
+        app: docksbox
     spec:
       containers:
-        - name: "k8s"
-          image: "blaizek8s.azurecr.io/k8s"
+        - name: docksbox
+          image: ghcr.io/sunsided/docksbox:latest
           ports:
-          - containerPort: 80
+            - name: http
+              containerPort: 80

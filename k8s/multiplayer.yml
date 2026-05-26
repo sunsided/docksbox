@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
       - name: keen-kontainer
-        image: "blaize/keen"
+        image: "ghcr.io/sunsided/docksbox:latest"
         ports:
         - containerPort: 80
 ---
@@ -92,6 +92,6 @@ spec:
     spec:
       containers:
       - name: keen-kontainer
-        image: "blaize/keen"
+        image: "ghcr.io/sunsided/docksbox:latest"
         ports:
         - containerPort: 80
